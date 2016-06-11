@@ -67,6 +67,7 @@ namespace PolarisServer.Models
         Dark
     }
 
+    // TODO: Redo this entire thing properly
     public class PSO2Item
     {
         public const int Size = 0x38;

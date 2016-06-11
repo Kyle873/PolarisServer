@@ -7,6 +7,7 @@ using System.Reflection;
 
 namespace PolarisServer
 {
+    // TODO: Just replace all of this with JSON
     public class ConfigComment : Attribute
     {
         public string Comment;
@@ -19,28 +20,26 @@ namespace PolarisServer
 
     public class Config
     {
-        private readonly string _configFile = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) +
-                                              Path.DirectorySeparatorChar + "PolarisServer.cfg";
+        private readonly string configFile = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) +
+                                             Path.DirectorySeparatorChar + "PolarisServer.cfg";
 
-        // Settings
         [ConfigComment("The address to bind to")]
         public IPAddress BindAddress = IPAddress.Loopback;
 
         [ConfigComment("The prefix to check for to send a command from the client to the server")]
-        public string
-            CommandPrefix = "|";
+        public string CommandPrefix = "|";
 
         [ConfigComment("Address of the database server")]
         public string DatabaseAddress = "127.0.0.1";
         [ConfigComment("Name of the database which contains the Polaris data")]
         public string DatabaseName = "polaris";
-        [ConfigComment("Password for logging into the database server")]
-        public string DatabasePassword = "polaris";
         [ConfigComment("Username for logging into the database server")]
         public string DatabaseUsername = "polaris";
+        [ConfigComment("Password for logging into the database server")]
+        public string DatabasePassword = "polaris";
 
         [ConfigComment("Message of the day to display to users upon login.")]
-        public string motd = "";
+        public string MOTD = "";
 
         [ConfigComment("Time in seconds to perform a ping of all connected clients to the server")]
         public double PingTime = 60;
@@ -56,14 +55,14 @@ namespace PolarisServer
             try
             {
                 // No config exists, save a default one
-                if (!File.Exists(_configFile))
+                if (!File.Exists(configFile))
                 {
                     Save(true);
                     return;
                 }
 
                 var fields = GetType().GetFields();
-                var lines = File.ReadAllLines(_configFile);
+                var lines = File.ReadAllLines(configFile);
 
                 foreach (var option in lines)
                 {
@@ -114,7 +113,7 @@ namespace PolarisServer
                 foreach (var field in fields)
                     SaveField(field, data);
 
-                File.WriteAllLines(_configFile, data);
+                File.WriteAllLines(configFile, data);
             }
             catch (Exception ex)
             {
@@ -202,7 +201,7 @@ namespace PolarisServer
             {
                 data.Add(field.Name + " = " + field.GetValue(this));
             }
-            
+
             // Leave a blank line between options
             data.Add(string.Empty);
 

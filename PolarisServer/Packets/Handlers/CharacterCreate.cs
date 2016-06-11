@@ -1,5 +1,6 @@
 ﻿using System.IO;
 using System.Data.Entity;
+
 using PolarisServer.Models;
 using PolarisServer.Packets.PSOPackets;
 using PolarisServer.Database;
@@ -9,8 +10,6 @@ namespace PolarisServer.Packets.Handlers
     [PacketHandlerAttr(0x11, 0x05)]
     public class CharacterCreate : PacketHandler
     {
-        #region implemented abstract members of PacketHandler
-
         public override void HandlePacket(Client context, byte flags, byte[] data, uint position, uint size)
         {
             if (context.User == null)
@@ -22,13 +21,16 @@ namespace PolarisServer.Packets.Handlers
             reader.ReadByte(); // VoiceType
             reader.ReadBytes(5); // 5 unknown bytes
             reader.ReadUInt16(); // VoiceData
+
             var name = reader.ReadFixedLengthUtf16(16);
 
             reader.BaseStream.Seek(0x4, SeekOrigin.Current); // Padding
+
             var looks = reader.ReadStruct<Character.LooksParam>();
             var jobs = reader.ReadStruct<Character.JobParam>();
 
             Logger.WriteInternal("[CHR] {0} is creating a new character named {1}.", context.User.Username, name);
+
             var newCharacter = new Character
             {
                 Name = name,
@@ -39,7 +41,7 @@ namespace PolarisServer.Packets.Handlers
 
             // Add to database
             using (var db = new PolarisEf())
-            { 
+            {
                 db.Characters.Add(newCharacter);
                 db.Entry(newCharacter.Player).State = EntityState.Modified;
                 db.SaveChanges();
@@ -51,13 +53,11 @@ namespace PolarisServer.Packets.Handlers
             // Set Player ID
             var writer = new PacketWriter();
             writer.Write(0);
-            writer.Write((uint) context.User.PlayerId);
+            writer.Write((uint)context.User.PlayerID);
             context.SendPacket(0x11, 0x07, 0, writer.ToArray());
 
             // Spawn
             context.SendPacket(new NoPayloadPacket(0x11, 0x3E));
         }
-
-        #endregion
     }
 }

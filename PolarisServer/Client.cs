@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Security.Cryptography;
+
 using PolarisServer.Database;
 using PolarisServer.Models;
 using PolarisServer.Network;
@@ -12,24 +13,40 @@ namespace PolarisServer
 {
     public class Client
     {
+        public bool IsClosed { get; private set; }
+        public SocketClient Socket { get; private set; }
+
+        // Game properties, TODO Consider moving these somewhere else
+        public Player User { get; set; }
+        public Character Character { get; set; }
+        // public Zone.Zone CurrentZone { get; set; }
+        public Map CurrentZone;
+        public uint MovementTimestamp { get; internal set; }
+        public Party.Party currentParty;
+
+        public PSOLocation CurrentLocation;
+        public PSOLocation LastLocation;
+
         internal static RSACryptoServiceProvider RsaCsp = null;
-        private readonly byte[] _readBuffer;
-        private readonly Server _server;
         internal ICryptoTransform InputArc4, OutputArc4;
-        private int _packetId;
-        private uint _readBufferSize;
+
+        private readonly byte[] readBuffer;
+        private readonly Server server;
+
+        private int packetID;
+        private uint readBufferSize;
 
         public Client(Server server, SocketClient socket)
         {
             IsClosed = false;
-            _server = server;
+            this.server = server;
             Socket = socket;
 
             socket.DataReceived += HandleDataReceived;
             socket.ConnectionLost += HandleConnectionLost;
 
-            _readBuffer = new byte[1024 * 64];
-            _readBufferSize = 0;
+            readBuffer = new byte[1024 * 64];
+            readBufferSize = 0;
 
             InputArc4 = null;
             OutputArc4 = null;
@@ -42,62 +59,48 @@ namespace PolarisServer
             SendPacket(0x03, 0x08, 0, welcome.ToArray());
         }
 
-        public bool IsClosed { get; private set; }
-        public SocketClient Socket { get; private set; }
-        // Game properties, TODO Consider moving these somewhere else
-        public Player User { get; set; }
-        public Character Character { get; set; }
-        //public Zone.Zone CurrentZone { get; set; }
-        public Map CurrentZone;
-        public uint MovementTimestamp { get; internal set; }
-        public Party.Party currentParty;
-
-        public PSOLocation CurrentLocation;
-        public PSOLocation LastLocation;
-
         private void HandleDataReceived(byte[] data, int size)
         {
             Logger.Write("[<--] Recieved {0} bytes", size);
-            if ((_readBufferSize + size) > _readBuffer.Length)
+
+            if ((readBufferSize + size) > readBuffer.Length)
             {
                 // Buffer overrun
                 // TODO: Drop the connection when this occurs?
                 return;
             }
 
-            Array.Copy(data, 0, _readBuffer, _readBufferSize, size);
+            Array.Copy(data, 0, readBuffer, readBufferSize, size);
 
             if (InputArc4 != null)
-            {
-                InputArc4.TransformBlock(_readBuffer, (int)_readBufferSize, size, _readBuffer, (int)_readBufferSize);
-            }
+                InputArc4.TransformBlock(readBuffer, (int)readBufferSize, size, readBuffer, (int)readBufferSize);
 
-            _readBufferSize += (uint)size;
+            readBufferSize += (uint)size;
 
             // Process ALL the packets
             uint position = 0;
 
-            while ((position + 8) <= _readBufferSize)
+            while ((position + 8) <= readBufferSize)
             {
                 var packetSize =
-                    _readBuffer[position] |
-                    ((uint)_readBuffer[position + 1] << 8) |
-                    ((uint)_readBuffer[position + 2] << 16) |
-                    ((uint)_readBuffer[position + 3] << 24);
+                    readBuffer[position] |
+                    ((uint)readBuffer[position + 1] << 8) |
+                    ((uint)readBuffer[position + 2] << 16) |
+                    ((uint)readBuffer[position + 3] << 24);
 
                 // Minimum size, just to avoid possible infinite loops etc
                 if (packetSize < 8)
                     packetSize = 8;
 
                 // If we don't have enough data for this one...
-                if (packetSize > 0x1000000 || (packetSize + position) > _readBufferSize)
+                if (packetSize > 0x1000000 || (packetSize + position) > readBufferSize)
                     break;
 
                 // Now handle this one
                 HandlePacket(
-                    _readBuffer[position + 4], _readBuffer[position + 5],
-                    _readBuffer[position + 6], _readBuffer[position + 7],
-                    _readBuffer, position + 8, packetSize - 8);
+                    readBuffer[position + 4], readBuffer[position + 5],
+                    readBuffer[position + 6], readBuffer[position + 7],
+                    readBuffer, position + 8, packetSize - 8);
 
                 // If the connection was closed, we have no more business here
                 if (IsClosed)
@@ -109,12 +112,12 @@ namespace PolarisServer
             // Wherever 'position' is up to, is what was successfully processed
             if (position > 0)
             {
-                if (position >= _readBufferSize)
-                    _readBufferSize = 0;
+                if (position >= readBufferSize)
+                    readBufferSize = 0;
                 else
                 {
-                    Array.Copy(_readBuffer, position, _readBuffer, 0, _readBufferSize - position);
-                    _readBufferSize -= position;
+                    Array.Copy(readBuffer, position, readBuffer, 0, readBufferSize - position);
+                    readBufferSize -= position;
                 }
             }
         }
@@ -123,10 +126,10 @@ namespace PolarisServer
         {
             // :(
             Logger.Write("[BYE] Connection lost. :(");
+
             if (CurrentZone != null)
-            {
                 CurrentZone.RemoveClient(this);
-            }
+
             IsClosed = true;
         }
 
@@ -186,10 +189,10 @@ namespace PolarisServer
             SendPacket(h.Type, h.Subtype, h.Flags1, packet.Build());
         }
 
-        private void HandlePacket(byte typeA, byte typeB, byte flags1, byte flags2, byte[] data, uint position,
-            uint size)
+        private void HandlePacket(byte typeA, byte typeB, byte flags1, byte flags2, byte[] data, uint position, uint size)
         {
             Logger.Write("[-->] Packet {0:X}-{1:X} (flags {2}) ({3} bytes)", typeA, typeB, (PacketFlags)flags1, size + 8);
+
             if (Logger.VerbosePackets && size > 0) // TODO: This is trimming too far?
             {
                 var dataTrimmed = new byte[size];
@@ -202,29 +205,26 @@ namespace PolarisServer
 
             var packet = new byte[size];
             Array.Copy(data, position, packet, 0, size);
+
             LogPacket(true, typeA, typeB, flags1, flags2, packet);
 
             var handler = PacketHandlers.GetHandlerFor(typeA, typeB);
             if (handler != null)
                 handler.HandlePacket(this, flags1, packet, 0, size);
             else
-            {
-                Logger.WriteWarning("[!!!] UNIMPLEMENTED PACKET {0:X}-{1:X} - (Flags {2}) ({3} bytes)", typeA,
-                    typeB, (PacketFlags)flags1, size);
-            }
-
-            // throw new NotImplementedException();
+                Logger.WriteWarning("[!!!] UNIMPLEMENTED PACKET {0:X}-{1:X} - (Flags {2}) ({3} bytes)", typeA, typeB, (PacketFlags)flags1, size);
         }
 
         private void LogPacket(bool fromClient, byte typeA, byte typeB, byte flags1, byte flags2, byte[] packet)
         {
             // Check for and create packets directory if it doesn't exist
-            var packetPath = "packets/" + _server.StartTime.ToShortDateString().Replace('/', '-') + "-" +
-                             _server.StartTime.ToShortTimeString().Replace('/', '-').Replace(':', '-');
+            var packetPath = "packets/" + server.StartTime.ToShortDateString().Replace('/', '-') + "-" +
+                             server.StartTime.ToShortTimeString().Replace('/', '-').Replace(':', '-');
+
             if (!Directory.Exists(packetPath))
                 Directory.CreateDirectory(packetPath);
 
-            var filename = string.Format("{0}/{1}.{2:X}.{3:X}.{4}.bin", packetPath, _packetId++, typeA, typeB,
+            var filename = string.Format("{0}/{1}.{2:X}.{3:X}.{4}.bin", packetPath, packetID++, typeA, typeB,
                 fromClient ? "C" : "S");
 
             using (var stream = File.OpenWrite(filename))
@@ -236,6 +236,7 @@ namespace PolarisServer
                     stream.WriteByte(flags1);
                     stream.WriteByte(flags2);
                 }
+
                 stream.Write(packet, 0, packet.Length);
             }
         }

@@ -2,30 +2,34 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+
+using PolarisServer.Database;
 using PolarisServer.Models;
 
 namespace PolarisServer.Packets.PSOPackets
 {
-    class SetQuestPacket : Packet
+    public class SetQuestPacket : Packet
     {
-        QuestDefiniton questdef;
-        Database.Player p;
+        QuestDefiniton questDef;
+        Player player;
 
-        public SetQuestPacket(QuestDefiniton questdef, Database.Player p)
+        public SetQuestPacket(QuestDefiniton questdef, Database.Player player)
         {
-            this.questdef = questdef;
-            this.p = p;
+            this.questDef = questdef;
+            this.player = player;
         }
+
         public override byte[] Build()
         {
             PacketWriter writer = new PacketWriter();
-            writer.Write(questdef.questNameString);
+
+            writer.Write(questDef.questNameString);
             writer.Write(0);
             writer.Write((ushort)0);
             writer.Write((ushort)0);
             writer.Write((ushort)0);
             writer.Write((ushort)1);
-            writer.WriteStruct(new ObjectHeader((uint)p.PlayerId, EntityType.Player));
+            writer.WriteStruct(new ObjectHeader((uint)player.PlayerID, EntityType.Player));
             writer.Write(0);
             writer.Write((ushort)0);
             writer.Write((ushort)0);
@@ -33,6 +37,7 @@ namespace PolarisServer.Packets.PSOPackets
             writer.Write((ushort)0);
             writer.Write(0);
             writer.Write(0);
+
             return writer.ToArray();
         }
 

@@ -23,23 +23,27 @@ namespace PolarisServer
 
         public static List<Thread> RunningServers = new List<Thread>();
 
-        private readonly QueryMode _mode;
-        private readonly int _port;
+        private readonly QueryMode mode;
+        private readonly int port;
 
         public QueryServer(QueryMode mode, int port)
         {
-            _mode = mode;
-            _port = port;
+            this.mode = mode;
+            this.port = port;
+
             var queryThread = new Thread(Run);
             queryThread.Start();
+
             RunningServers.Add(queryThread);
+
             Logger.WriteInternal("[---] Started a new QueryServer on port " + port);
         }
 
         private void Run()
         {
             OnConnection c;
-            switch (_mode)
+
+            switch (mode)
             {
                 default:
                     c = DoShipList;
@@ -56,9 +60,11 @@ namespace PolarisServer
             {
                 Blocking = true
             };
-            var ep = new IPEndPoint(IPAddress.Any, _port);
+
+            var ep = new IPEndPoint(IPAddress.Any, port);
             serverSocket.Bind(ep); // TODO: Custom bind address.
             serverSocket.Listen(5);
+
             while (true)
             {
                 var newConnection = serverSocket.Accept();
@@ -81,11 +87,14 @@ namespace PolarisServer
                     name = String.Format("Ship{0:0#}", i),
                     ip = PolarisApp.BindAddress.GetAddressBytes()
                 };
+
                 entries.Add(entry);
             }
+
             PacketHeader header = new PacketHeader(8 + Marshal.SizeOf(typeof(ShipEntry)) * entries.Count + 12, 0x11, 0x3D, 0x4, 0x0);
             writer.WriteStruct(header);
             writer.WriteMagic((uint)entries.Count, 0xE418, 81);
+
             foreach (var entry in entries)
                 writer.WriteStruct(entry);
 
@@ -94,12 +103,12 @@ namespace PolarisServer
 
             socket.Send(writer.ToArray());
             socket.Close();
-
         }
 
         private void DoBlockBalance(Socket socket)
         {
             var writer = new PacketWriter();
+
             writer.WriteStruct(new PacketHeader(0x90, 0x11, 0x2C, 0x0, 0x0));
             writer.Write(new byte[0x68 - 8]);
             writer.Write(PolarisApp.BindAddress.GetAddressBytes());

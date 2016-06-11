@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Security.Cryptography;
+
 using PolarisServer.Crypto;
 
 namespace PolarisServer.Packets.Handlers
@@ -8,8 +9,6 @@ namespace PolarisServer.Packets.Handlers
     [PacketHandlerAttr(0x11, 0xB)]
     public class KeyExchange : PacketHandler
     {
-        #region implemented abstract members of PacketHandler
-
         public override void HandlePacket(Client context, byte flags, byte[] data, uint position, uint size)
         {
             if (context.InputArc4 != null)
@@ -54,13 +53,13 @@ namespace PolarisServer.Packets.Handlers
             Array.Copy(decryptedBlob, 0x10, arc4Key, 0, 0x10);
 
             // Create three RC4 mungers
-            var arc4 = new Arc4Managed {Key = arc4Key};
+            var arc4 = new Arc4Managed { Key = arc4Key };
             context.InputArc4 = arc4.CreateDecryptor();
 
-            arc4 = new Arc4Managed {Key = arc4Key};
+            arc4 = new Arc4Managed { Key = arc4Key };
             context.OutputArc4 = arc4.CreateEncryptor();
 
-            arc4 = new Arc4Managed {Key = arc4Key};
+            arc4 = new Arc4Managed { Key = arc4Key };
             var tempDecryptor = arc4.CreateDecryptor();
 
             // Also, grab the init token for the client
@@ -69,7 +68,5 @@ namespace PolarisServer.Packets.Handlers
 
             context.SendPacket(0x11, 0xC, 0, decryptedToken);
         }
-
-        #endregion
     }
 }

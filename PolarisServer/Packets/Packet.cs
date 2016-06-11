@@ -1,4 +1,6 @@
-﻿using PolarisServer.Models;
+﻿using System;
+
+using PolarisServer.Models;
 
 namespace PolarisServer.Packets
 {

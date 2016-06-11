@@ -1,6 +1,8 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+
 using PolarisServer.Database;
 using PolarisServer.Packets.PSOPackets;
 using PolarisServer.Models;
@@ -10,8 +12,6 @@ namespace PolarisServer.Packets.Handlers
     [PacketHandlerAttr(0x11, 0x0)]
     public class Login : PacketHandler
     {
-        #region implemented abstract members of PacketHandler
-
         public override void HandlePacket(Client context, byte flags, byte[] data, uint position, uint size)
         {
             var reader = new PacketReader(data, position, size);
@@ -19,13 +19,12 @@ namespace PolarisServer.Packets.Handlers
             reader.BaseStream.Seek(0x2C, SeekOrigin.Current);
 
             var macCount = reader.ReadMagic(0x5E6, 107);
-            reader.BaseStream.Seek(0x1C * macCount, SeekOrigin.Current);
 
-			reader.BaseStream.Seek(0x154, SeekOrigin.Current);
+            reader.BaseStream.Seek(0x1C * macCount, SeekOrigin.Current);
+            reader.BaseStream.Seek(0x154, SeekOrigin.Current);
 
             var username = reader.ReadFixedLengthAscii(64);
             var password = reader.ReadFixedLengthAscii(64);
-
 
             // What am I doing here even
             using (var db = new PolarisEf())
@@ -33,7 +32,6 @@ namespace PolarisServer.Packets.Handlers
                 var users = from u in db.Players
                             where u.Username.ToLower().Equals(username.ToLower())
                             select u;
-
 
                 var error = "";
                 Player user;
@@ -61,8 +59,9 @@ namespace PolarisServer.Packets.Handlers
                             Password = BCrypt.Net.BCrypt.HashPassword(password),
                             Nickname = username.ToLower(),
                             // Since we can't display the nickname prompt yet, just default it to the username
-                            SettingsIni = File.ReadAllText("Resources/settings.txt")
+                            SettingsINI = File.ReadAllText("Resources/settings.txt")
                         };
+
                         db.Players.Add(user);
                         db.SaveChanges();
 
@@ -72,6 +71,7 @@ namespace PolarisServer.Packets.Handlers
                 else
                 {
                     user = users.First();
+
                     if (!BCrypt.Net.BCrypt.Verify(password, user.Password))
                     {
                         error = "Incorrect password.";
@@ -82,31 +82,25 @@ namespace PolarisServer.Packets.Handlers
                 /* Mystery packet
                 var mystery = new PacketWriter();
                 mystery.Write((uint)100);
-                SendPacket(0x11, 0x49, 0, mystery.ToArray()); */
+                SendPacket(0x11, 0x49, 0, mystery.ToArray());
+                */
 
                 // Login response packet
-               
-                context.SendPacket(new LoginDataPacket("Polaris Block 1", error, (user == null) ? (uint)0 : (uint)user.PlayerId));
+                context.SendPacket(new LoginDataPacket("Polaris Block 1", error, (user == null) ? (uint)0 : (uint)user.PlayerID));
 
                 if (user == null)
                     return;
 
                 // Settings packet
                 var settings = new PacketWriter();
-                settings.WriteAscii(user.SettingsIni, 0x54AF, 0x100);
+                settings.WriteAscii(user.SettingsINI, 0x54AF, 0x100);
                 context.SendPacket(0x2B, 2, 4, settings.ToArray());
 
                 context.User = user;
-
             }
 
-            if (PolarisApp.Config.motd != "")
-            {
-                context.SendPacket(new SystemMessagePacket(PolarisApp.Config.motd, SystemMessagePacket.MessageType.AdminMessageInstant));
-            }
-
+            if (PolarisApp.Config.MOTD != "")
+                context.SendPacket(new SystemMessagePacket(PolarisApp.Config.MOTD, SystemMessagePacket.MessageType.AdminMessageInstant));
         }
-
-        #endregion
     }
 }

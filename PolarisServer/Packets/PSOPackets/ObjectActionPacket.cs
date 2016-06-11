@@ -2,11 +2,12 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+
 using PolarisServer.Models;
 
 namespace PolarisServer.Packets.PSOPackets
 {
-    class ObjectActionPacket : Packet
+    public class ObjectActionPacket : Packet
     {
         private ObjectHeader headerA; // Destination player / object?
         private ObjectHeader headerB; // Calling player / object?
@@ -40,7 +41,7 @@ namespace PolarisServer.Packets.PSOPackets
 
         public override PacketHeader GetHeader()
         {
-            return new PacketHeader(0x4, 0x15, (PacketFlags.OBJECT_RELATED | PacketFlags.PACKED));
+            return new PacketHeader(0x4, 0x15, (PacketFlags.ObjectRelated | PacketFlags.Packed));
         }
     }
 }

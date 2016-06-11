@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Runtime.InteropServices;
+
 using PolarisServer.Packets.PSOPackets;
 
 namespace PolarisServer.Models

@@ -2,6 +2,7 @@
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
+
 using PolarisServer.Models;
 
 namespace PolarisServer.Packets
@@ -27,20 +28,19 @@ namespace PolarisServer.Packets
         public void WriteAscii(string str, uint xor, uint sub)
         {
             if (str.Length == 0)
-            {
                 WriteMagic(0, xor, sub);
-            }
             else
             {
                 // Magic, followed by string, followed by null terminator,
                 // followed by padding characters if needed.
-                var charCount = (uint) str.Length;
+                var charCount = (uint)str.Length;
                 var padding = 4 - (charCount & 3);
 
                 WriteMagic(charCount + 1, xor, sub);
                 Write(Encoding.ASCII.GetBytes(str));
+
                 for (var i = 0; i < padding; i++)
-                    Write((byte) 0);
+                    Write((byte)0);
             }
         }
 
@@ -58,21 +58,20 @@ namespace PolarisServer.Packets
         public void WriteUtf16(string str, uint xor, uint sub)
         {
             if (str.Length == 0)
-            {
                 WriteMagic(0, xor, sub);
-            }
             else
             {
                 // Magic, followed by string, followed by null terminator,
                 // followed by a padding character if needed.
-                var charCount = (uint) str.Length + 1;
+                var charCount = (uint)str.Length + 1;
                 var padding = (charCount & 1);
 
                 WriteMagic(charCount, xor, sub);
                 Write(Encoding.GetEncoding("UTF-16").GetBytes(str));
-                Write((ushort) 0);
+                Write((ushort)0);
+
                 if (padding != 0)
-                    Write((ushort) 0);
+                    Write((ushort)0);
             }
         }
 
@@ -89,10 +88,8 @@ namespace PolarisServer.Packets
             }
 
             if (paddingAmount > 0)
-            {
                 for (var i = 0; i < paddingAmount; i++)
-                    Write((byte) 0);
-            }
+                    Write((byte)0);
         }
 
         public void WriteFixedLengthUtf16(string str, int charCount)
@@ -108,10 +105,8 @@ namespace PolarisServer.Packets
             }
 
             if (paddingAmount > 0)
-            {
                 for (var i = 0; i < paddingAmount; i++)
-                    Write((ushort) 0);
-            }
+                    Write((ushort)0);
         }
 
         public void Write(PSOLocation s)
@@ -128,9 +123,9 @@ namespace PolarisServer.Packets
         public void WritePlayerHeader(uint id)
         {
             Write(id);
-            Write((uint) 0);
-            Write((ushort) 4);
-            Write((ushort) 0);
+            Write((uint)0);
+            Write((ushort)4);
+            Write((ushort)0);
         }
 
         public unsafe void WriteStruct<T>(T structure) where T : struct
@@ -138,25 +133,21 @@ namespace PolarisServer.Packets
             var strArr = new byte[Marshal.SizeOf(structure)];
 
             fixed (byte* ptr = strArr)
-            {
-                Marshal.StructureToPtr(structure, (IntPtr) ptr, false);
-            }
+                Marshal.StructureToPtr(structure, (IntPtr)ptr, false);
 
             Write(strArr);
         }
 
         public byte[] ToArray()
         {
-            var ms = (MemoryStream) BaseStream;
+            var ms = (MemoryStream)BaseStream;
             return ms.ToArray();
         }
 
         internal void WriteBytes(byte b, uint count)
         {
-            for(int i = 0; i < count; i++)
-            {
+            for (int i = 0; i < count; i++)
                 Write(b);
-            }
         }
     }
 }

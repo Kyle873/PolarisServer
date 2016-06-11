@@ -1,33 +1,11 @@
 ﻿using System;
+
 using PolarisServer.Models;
 
 namespace PolarisServer.Packets.PSOPackets
 {
-    class QuestListPacket : Packet
+    public class QuestListPacket : Packet
     {
-        private QuestDefiniton[] questdefs;
-
-        public QuestListPacket(QuestDefiniton[] questdefs)
-        {
-            this.questdefs = questdefs;
-        }
-
-        public override byte[] Build()
-        {
-            PacketWriter writer = new PacketWriter();
-            writer.WriteMagic((uint)questdefs.Length, 0x1DB0, 0xC5);
-            foreach (QuestDefiniton d in questdefs)
-            {
-                writer.WriteStruct(d);
-            }
-            return writer.ToArray();
-        }
-
-        public override PacketHeader GetHeader()
-        {
-            return new PacketHeader(0xB, 0x18, 0x4);
-        }
-
         // Hoo boy, this is 468 bytes!
         // TODO: Map out this struct.
         // Most of this is WRONG!!! Needs serious investigation.
@@ -80,6 +58,30 @@ namespace PolarisServer.Packets.PSOPackets
             Dummy1 = 0x20,
             Dummy2 = 0x40,
             Dummy3 = 0x80,
+        }
+
+        private QuestDefiniton[] questdefs;
+
+        public QuestListPacket(QuestDefiniton[] questdefs)
+        {
+            this.questdefs = questdefs;
+        }
+
+        public override byte[] Build()
+        {
+            PacketWriter writer = new PacketWriter();
+
+            writer.WriteMagic((uint)questdefs.Length, 0x1DB0, 0xC5);
+
+            foreach (QuestDefiniton d in questdefs)
+                writer.WriteStruct(d);
+
+            return writer.ToArray();
+        }
+
+        public override PacketHeader GetHeader()
+        {
+            return new PacketHeader(0xB, 0x18, 0x4);
         }
     }
 }

@@ -1,11 +1,12 @@
-﻿using PolarisServer.Models;
-using PolarisServer.Object;
-using PolarisServer.Packets.PSOPackets;
-using PolarisServer.Zone;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+
+using PolarisServer.Models;
+using PolarisServer.Object;
+using PolarisServer.Packets.PSOPackets;
+using PolarisServer.Zone;
 
 namespace PolarisServer.Packets.Handlers
 {
@@ -18,12 +19,11 @@ namespace PolarisServer.Packets.Handlers
                 return;
 
             // Dunno what these are yet.
-            context.SendPacket(0x11, 0xA, 0x0, BitConverter.GetBytes(context.User.PlayerId));
+            context.SendPacket(0x11, 0xA, 0x0, BitConverter.GetBytes(context.User.PlayerID));
             context.SendPacket(0x1E, 0xC, 0x0, BitConverter.GetBytes(101));
 
             Map casinoMap = ZoneManager.Instance.MapFromInstance("casino", "lobby");
             casinoMap.SpawnClient(context, casinoMap.GetDefaultLocation());
-
         }
     }
 }

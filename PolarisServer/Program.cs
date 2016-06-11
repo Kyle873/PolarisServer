@@ -13,12 +13,12 @@ namespace PolarisServer
     internal class PolarisApp
     {
         public static PolarisApp Instance { get; private set; }
-        
+
         // Will be using these around the app later [KeyPhact]
         public const string PolarisName = "Polaris Server";
         public const string PolarisShortName = "Polaris";
         public const string PolarisAuthor = "PolarisTeam (http://github.com/PolarisTeam)";
-        public const string PolarisCopyright = "(C) 2014 PolarisTeam.";
+        public const string PolarisCopyright = "(C) 2014-2016 PolarisTeam.";
         public const string PolarisLicense = "All licenced under AGPL.";
         public const string PolarisVersion = "v0.1.0-pre";
         public const string PolarisVersionName = "Corsac Fox";
@@ -92,13 +92,16 @@ namespace PolarisServer
             {
                 // If it doesn't exist, generate a fresh keypair [CK]
                 Logger.WriteWarning("[WRN] No privatekey.blob installed, generating new keypair...");
+
                 RSACryptoServiceProvider rcsp = new RSACryptoServiceProvider();
                 byte[] cspBlob = rcsp.ExportCspBlob(true);
                 byte[] cspBlobPub = rcsp.ExportCspBlob(false);
+
                 FileStream outFile = File.Create("privateKey.blob");
-                FileStream outFilePub = File.Create("publicKey.blob");
                 outFile.Write(cspBlob, 0, cspBlob.Length);
                 outFile.Close();
+
+                FileStream outFilePub = File.Create("publicKey.blob");
                 outFilePub.Write(cspBlobPub, 0, cspBlobPub.Length);
                 outFilePub.Close();
             }
@@ -127,10 +130,7 @@ namespace PolarisServer
 
             Logger.WriteInternal("[DB ] Loading database...");
             using (var db = new PolarisEf())
-            {
-
                 db.SetupDB();
-            }
 
             for (var i = 0; i < 10; i++)
                 QueryServers.Add(new QueryServer(QueryMode.ShipList, 12099 + (100 * i)));

@@ -5,7 +5,7 @@ using PolarisServer.Models;
 
 namespace PolarisServer.Packets.PSOPackets
 {
-    class QuestStartPacket : Packet
+    public class QuestStartPacket : Packet
     {
         QuestDefiniton data;
         QuestDifficultyPacket.QuestDifficulty difficulty;

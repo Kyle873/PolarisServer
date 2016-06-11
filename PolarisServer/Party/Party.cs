@@ -1,72 +1,66 @@
-﻿using PolarisServer.Models;
-using PolarisServer.Packets.PSOPackets;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+
+using PolarisServer.Models;
+using PolarisServer.Packets.PSOPackets;
 
 namespace PolarisServer.Party
 {
     public class Party
     {
-        public string name;
-        private List<Client> members;
-        private Client host;
-        public Quest currentQuest;
+        public string Name { get; }
+        public Quest CurrentQuest { get; set; }
+        public Client Host { get; }
+        public List<Client> Members { get; }
 
         public Party(string name, Client host)
         {
-            this.name = name;
-            this.host = host;
-            this.members = new List<Client>();
-            addClientToParty(host);
+            this.Name = name;
+            this.Host = host;
+            this.Members = new List<Client>();
+
+            AddClientToParty(host);
         }
 
-        public void addClientToParty(Client c)
+        public void AddClientToParty(Client c)
         {
-            if (members.Count < 1)
+            if (Members.Count < 1)
             {
-                c.SendPacket(new PartyInitPacket(new Models.Character[1] { c.Character }));
+                c.SendPacket(new PartyInitPacket(new Character[1] { c.Character }));
             }
             else
             {
                 // ???
             }
-            members.Add(c);
+
+            Members.Add(c);
+
             c.currentParty = this;
         }
 
-        public void removeClientFromParty(Client c)
+        public void RemoveClientFromParty(Client c)
         {
-            if(!members.Contains(c))
+            if (!Members.Contains(c))
             {
-                Logger.WriteWarning("[PTY] Client {0} was trying to be removed from {1}, but he was never in {1}!", c.User.Username, name);
+                Logger.WriteWarning("[PTY] Client {0} was trying to be removed from {1}, but he was never in {1}!", c.User.Username, Name);
                 return;
             }
 
-            members.Remove(c);
-            //TODO do stuff like send the "remove from party" packet.
+            Members.Remove(c);
+
+            // TODO: do stuff like send the "remove from party" packet.
         }
 
-        public bool hasClientInParty(Client c)
+        public bool HasClientInParty(Client c)
         {
-            return members.Contains(c);
+            return Members.Contains(c);
         }
 
-        public Client getPartyHost()
+        public int GetSize()
         {
-            return host;
+            return Members.Count;
         }
-
-        public int getSize()
-        {
-            return members.Count;
-        }
-
-        public List<Client> getMembers()
-        {
-            return members;
-        }
-
     }
 }

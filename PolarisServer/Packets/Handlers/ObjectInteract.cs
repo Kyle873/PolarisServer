@@ -1,11 +1,12 @@
-﻿using PolarisServer.Database;
-using PolarisServer.Models;
-using PolarisServer.Object;
-using PolarisServer.Packets.PSOPackets;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+
+using PolarisServer.Database;
+using PolarisServer.Models;
+using PolarisServer.Object;
+using PolarisServer.Packets.PSOPackets;
 
 namespace PolarisServer.Packets.Handlers
 {
@@ -15,31 +16,32 @@ namespace PolarisServer.Packets.Handlers
         public override void HandlePacket(Client context, byte flags, byte[] data, uint position, uint size)
         {
             PacketReader reader = new PacketReader(data);
+
             reader.ReadBytes(12); // Padding MAYBE???????????
+
             ObjectHeader srcObject = reader.ReadStruct<ObjectHeader>();
             byte[] someBytes = reader.ReadBytes(4); // Dunno what this is yet.
             ObjectHeader dstObject = reader.ReadStruct<ObjectHeader>(); // Could be wrong
+
             reader.ReadBytes(16); // Not sure what this is yet
+
             string command = reader.ReadAscii(0xD711, 0xCA);
+
             PSOObject srcObj;
-            if(srcObject.EntityType == EntityType.Object)
-            {
-                srcObj = ObjectManager.Instance.getObjectByID(context.CurrentZone.Name, srcObject.ID);
-            }
-            else if(srcObject.EntityType == EntityType.Player)
+            if (srcObject.EntityType == EntityType.Object)
+                srcObj = ObjectManager.Instance.GetObjectByID(context.CurrentZone.Name, srcObject.ID);
+            else if (srcObject.EntityType == EntityType.Player)
             {
                 srcObj = new PSOObject();
                 srcObj.Header = srcObject;
                 srcObj.Name = "Player";
             }
             else
-            {
                 srcObj = null;
-            }
 
             Logger.WriteInternal("[OBJ] {0} (ID {1}) <{2}> --> Ent {3} (ID {4})", srcObj.Name, srcObj.Header.ID, command, (EntityType)dstObject.EntityType, dstObject.ID);
 
-            // TODO: Delete this code and do this COMPLETELY correctly!!!
+            /* TODO: Delete this code and do this COMPLETELY correctly!!!
             if (command == "Transfer" && context.CurrentZone.Name == "lobby")
             {
                 // Try and get the teleport definition for the object...
@@ -74,13 +76,13 @@ namespace PolarisServer.Packets.Handlers
                         context.SendPacket(new ObjectActionPacket(dstObject, srcObject, new ObjectHeader(), new ObjectHeader(), "Forwarded")); 
                     }
                 }
-            }
+            } */
 
             if (command == "READY")
             {
-                context.SendPacket(new ObjectActionPacket(new ObjectHeader((uint)context.User.PlayerId, EntityType.Player), srcObj.Header, srcObj.Header,
+                context.SendPacket(new ObjectActionPacket(new ObjectHeader((uint)context.User.PlayerID, EntityType.Player), srcObj.Header, srcObj.Header,
                     new ObjectHeader(), "FavsNeutral"));
-                context.SendPacket(new ObjectActionPacket(new ObjectHeader((uint)context.User.PlayerId, EntityType.Player), srcObj.Header, srcObj.Header,
+                context.SendPacket(new ObjectActionPacket(new ObjectHeader((uint)context.User.PlayerID, EntityType.Player), srcObj.Header, srcObj.Header,
                     new ObjectHeader(), "AP")); // Short for Appear, Thanks Zapero!
             }
 
@@ -91,11 +93,10 @@ namespace PolarisServer.Packets.Handlers
                     if (client.Character == null || client == context)
                         continue;
 
-                    client.SendPacket(new ObjectActionPacket(new ObjectHeader((uint)client.User.PlayerId, EntityType.Player), srcObj.Header,
+                    client.SendPacket(new ObjectActionPacket(new ObjectHeader((uint)client.User.PlayerID, EntityType.Player), srcObj.Header,
                         new ObjectHeader(dstObject.ID, EntityType.Player), new ObjectHeader(), "SitSuccess"));
                 }
             }
         }
     }
-
 }

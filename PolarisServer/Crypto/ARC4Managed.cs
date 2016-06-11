@@ -56,13 +56,13 @@ namespace PolarisServer.Crypto
             {
                 if (KeyValue == null)
                     GenerateKey();
-                return (byte[])KeyValue.Clone();    
+                return (byte[])KeyValue.Clone();
             }
             set
             {
                 if (value == null)
                     throw new ArgumentNullException("Key");
-                KeyValue = _key = (byte[]) value.Clone();
+                KeyValue = _key = (byte[])value.Clone();
                 KeySetup(_key);
             }
         }
@@ -164,17 +164,17 @@ namespace PolarisServer.Crypto
             byte index2 = 0;
 
             for (var counter = 0; counter < 256; counter++)
-                _state[counter] = (byte) counter;
+                _state[counter] = (byte)counter;
             _x = 0;
             _y = 0;
             for (var counter = 0; counter < 256; counter++)
             {
-                index2 = (byte) (key[index1] + _state[counter] + index2);
+                index2 = (byte)(key[index1] + _state[counter] + index2);
                 // swap byte
                 var tmp = _state[counter];
                 _state[counter] = _state[index2];
                 _state[index2] = tmp;
-                index1 = (byte) ((index1 + 1)%key.Length);
+                index1 = (byte)((index1 + 1) % key.Length);
             }
         }
 
@@ -196,15 +196,15 @@ namespace PolarisServer.Crypto
         {
             for (var counter = 0; counter < inputCount; counter++)
             {
-                _x = (byte) (_x + 1);
-                _y = (byte) (_state[_x] + _y);
+                _x = (byte)(_x + 1);
+                _y = (byte)(_state[_x] + _y);
                 // swap byte
                 var tmp = _state[_x];
                 _state[_x] = _state[_y];
                 _state[_y] = tmp;
 
-                var xorIndex = (byte) (_state[_x] + _state[_y]);
-                outputBuffer[outputOffset + counter] = (byte) (inputBuffer[inputOffset + counter] ^ _state[xorIndex]);
+                var xorIndex = (byte)(_state[_x] + _state[_y]);
+                outputBuffer[outputOffset + counter] = (byte)(inputBuffer[inputOffset + counter] ^ _state[xorIndex]);
             }
             return inputCount;
         }

@@ -94,9 +94,7 @@ namespace PolarisServer.Zone
         public void SpawnClient(Client c, PSOLocation location, string questOveride = "")
         {
             if (Clients.Contains(c))
-            {
                 return;
-            }
 
             // Set area
             if (questOveride != "") // TODO: This is a temporary hack, fix me!!
@@ -107,17 +105,18 @@ namespace PolarisServer.Zone
             else
             {
                 PacketWriter writer = new PacketWriter();
+
                 writer.WriteStruct(new ObjectHeader(3, EntityType.Map));
-                writer.WriteStruct(new ObjectHeader((uint)c.User.PlayerId, EntityType.Player));
+                writer.WriteStruct(new ObjectHeader((uint)c.User.PlayerID, EntityType.Player));
                 writer.Write(0x1); // 8 Zeros
                 writer.Write(0); // 8 Zeros
                 writer.Write(~(uint)Type); // F4 FF FF FF
                 writer.Write(MapID); // Map ID maybe
                 writer.Write((uint)Flags);
-                writer.Write(GenerationArgs.seed); // 81 8F E6 19 (Maybe seed)
+                writer.Write(GenerationArgs.Seed); // 81 8F E6 19 (Maybe seed)
                 writer.Write(VariantID); // Randomgen enable / disable maybe
-                writer.Write(GenerationArgs.xsize); // X Size
-                writer.Write(GenerationArgs.ysize); // Y Size
+                writer.Write(GenerationArgs.XSize); // X Size
+                writer.Write(GenerationArgs.YSize); // Y Size
                 writer.Write(1);
                 writer.Write(1);
                 writer.Write(~0); // FF FF FF FF FF FF FF FF
@@ -127,12 +126,10 @@ namespace PolarisServer.Zone
             }
 
             if (c.CurrentZone != null)
-            {
                 c.CurrentZone.RemoveClient(c);
-            }
 
             var setPlayerId = new PacketWriter();
-            setPlayerId.WritePlayerHeader((uint)c.User.PlayerId);
+            setPlayerId.WritePlayerHeader((uint)c.User.PlayerID);
             c.SendPacket(0x06, 0x00, 0, setPlayerId.ToArray());
 
             // Spawn Character
@@ -142,15 +139,11 @@ namespace PolarisServer.Zone
 
             // Objects
             foreach (PSOObject obj in Objects)
-            {
                 c.SendPacket(0x08, 0x0B, 0x0, obj.GenerateSpawnBlob());
-            }
 
             // NPCs
             foreach (PSONPC npc in NPCs)
-            {
                 c.SendPacket(0x08, 0xC, 0x4, npc.GenerateSpawnBlob());
-            }
 
             // Spawn for others, Spawn others for me
             CharacterSpawnPacket spawnMe = new CharacterSpawnPacket(c.Character, location, false);
@@ -168,10 +161,7 @@ namespace PolarisServer.Zone
             Logger.Write("[MAP] {0} has spawned in {1}.", c.User.Username, Name);
 
             if (InstanceName != null && ZoneManager.Instance.playerCounter.ContainsKey(InstanceName))
-            {
                 ZoneManager.Instance.playerCounter[InstanceName] += 1;
-            }
-
         }
 
         public void RemoveClient(Client c)
@@ -185,14 +175,15 @@ namespace PolarisServer.Zone
             foreach (Client other in Clients)
             {
                 PacketWriter writer = new PacketWriter();
-                writer.WriteStruct(new ObjectHeader((uint)other.User.PlayerId, EntityType.Player));
-                writer.WriteStruct(new ObjectHeader((uint)c.User.PlayerId, EntityType.Player));
+                writer.WriteStruct(new ObjectHeader((uint)other.User.PlayerID, EntityType.Player));
+                writer.WriteStruct(new ObjectHeader((uint)c.User.PlayerID, EntityType.Player));
                 other.SendPacket(0x4, 0x3B, 0x40, writer.ToArray());
             }
 
             if (InstanceName != null && ZoneManager.Instance.playerCounter.ContainsKey(InstanceName))
             {
                 ZoneManager.Instance.playerCounter[InstanceName] -= 1;
+
                 if (ZoneManager.Instance.playerCounter[InstanceName] <= 0)
                 {
                     ZoneManager.Instance.playerCounter.Remove(InstanceName);
@@ -203,17 +194,20 @@ namespace PolarisServer.Zone
 
         public class GenParam
         {
+            public uint Seed { get; set; }
+            public uint XSize { get; set; }
+            public uint YSize { get; set; }
+
             public GenParam()
             {
             }
 
             public GenParam(uint seed, uint x, uint y)
             {
-                this.seed = seed;
-                this.xsize = x;
-                this.ysize = y;
+                this.Seed = seed;
+                this.XSize = x;
+                this.YSize = y;
             }
-            public uint seed, xsize, ysize;
         }
     }
 }

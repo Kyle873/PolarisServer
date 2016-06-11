@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+
 using PolarisServer.Database;
 using PolarisServer.Packets;
 
@@ -64,6 +65,7 @@ namespace PolarisServer.Models
             return obj;
         }
 
+        /* TODO: JSONify
         internal static PSOObject FromDBObject(GameObject dbObject)
         {
             PSOObject psoObj = new PSOObject();
@@ -80,6 +82,7 @@ namespace PolarisServer.Models
 
             return psoObj;
         }
+        */
     }
 
     public class PSONPC : PSOObject

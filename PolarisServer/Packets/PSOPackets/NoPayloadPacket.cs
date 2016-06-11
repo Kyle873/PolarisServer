@@ -1,19 +1,19 @@
-﻿using PolarisServer.Models;
+﻿using System;
+
+using PolarisServer.Models;
 
 namespace PolarisServer.Packets.PSOPackets
 {
     public class NoPayloadPacket : Packet
     {
-        private readonly byte _subtype;
-        private readonly byte _type;
+        private readonly byte type;
+        private readonly byte subType;
 
         public NoPayloadPacket(byte type, byte subtype)
         {
-            _type = type;
-            _subtype = subtype;
+            this.type = type;
+            this.subType = subtype;
         }
-
-        #region implemented abstract members of Packet
 
         public override byte[] Build()
         {
@@ -22,13 +22,7 @@ namespace PolarisServer.Packets.PSOPackets
 
         public override PacketHeader GetHeader()
         {
-            return new PacketHeader
-            {
-                Type = _type,
-                Subtype = _subtype
-            };
+            return new PacketHeader(type, subType);
         }
-
-        #endregion
     }
 }

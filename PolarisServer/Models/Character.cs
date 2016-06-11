@@ -1,6 +1,6 @@
 ﻿using System;
-using System.Runtime.InteropServices;
 using System.ComponentModel.DataAnnotations;
+using System.Runtime.InteropServices;
 
 using PolarisServer.Packets;
 using PolarisServer.Database;
@@ -48,6 +48,16 @@ namespace PolarisServer.Models
             Bouncer = 128
         }
 
+        // Probably more info than this
+        [Key]
+        public int CharacterID { get; set; }
+
+        public virtual Player Player { get; set; }
+        public string Name { get; set; }
+
+        public JobParam Jobs { get; set; }
+        public LooksParam Looks { get; set; }
+
         [StructLayout(LayoutKind.Sequential)]
         public struct HSVColor
         {
@@ -85,7 +95,7 @@ namespace PolarisServer.Models
             public fixed byte uknown_8[2];
             public byte padding0;
 
-            public Entries entries; //TODO: Make this a fixed array
+            public Entries entries; // TODO: Make this a fixed array
 
             public ushort unknown_48, unknown_4A;
             public uint unknown_4C;
@@ -105,7 +115,7 @@ namespace PolarisServer.Models
         {
             public fixed byte padding[4];
             public ushort height;
-            public fixed byte charData[80]; // Figure Data, needs more work
+            public fixed byte charData[80]; // TODO: Figure Data, needs more work
             public ushort accessoryData1;
             public ushort accessoryData2;
             public ushort accessoryData3;
@@ -139,29 +149,6 @@ namespace PolarisServer.Models
             public Gender gender;
         }
 
-        // Probably more info than this
-        [Key]
-        public int CharacterId { get; set; }
-
-        public virtual Player Player { get; set; }
-        public string Name { get; set; }
-
-        public byte[] LooksBinary
-        {
-            get
-            {
-                PacketWriter w = new PacketWriter();
-                w.WriteStruct(Looks);
-                return w.ToArray();
-            }
-
-            set
-            {
-                Looks = Helper.ByteArrayToStructure<LooksParam>(value);
-            }
-
-        }
-
         public byte[] JobsBinary
         {
             get
@@ -178,10 +165,21 @@ namespace PolarisServer.Models
 
         }
 
-        public LooksParam Looks { get; set; }
-        public JobParam Jobs { get; set; }
-    }
+        public byte[] LooksBinary
+        {
+            get
+            {
+                PacketWriter w = new PacketWriter();
+                w.WriteStruct(Looks);
+                return w.ToArray();
+            }
 
+            set
+            {
+                Looks = Helper.ByteArrayToStructure<LooksParam>(value);
+            }
+        }
+    }
 
     public struct PSOLocation
     {

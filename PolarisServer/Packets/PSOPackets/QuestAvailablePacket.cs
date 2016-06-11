@@ -1,13 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using PolarisServer.Models;
 using System.Runtime.InteropServices;
+using System.Text;
+
+using PolarisServer.Models;
 
 namespace PolarisServer.Packets.PSOPackets
 {
-    class QuestAvailablePacket : Packet
+    public class QuestAvailablePacket : Packet
     {
         public enum QuestType
         {
@@ -91,7 +92,8 @@ namespace PolarisServer.Packets.PSOPackets
         }
 
         public short[] amount = new short[Enum.GetValues(typeof(QuestType)).Length];
-        QuestTypeAvailable available = QuestTypeAvailable.Arks;
+
+        private QuestTypeAvailable available = QuestTypeAvailable.Arks;
 
         public override byte[] Build()
         {

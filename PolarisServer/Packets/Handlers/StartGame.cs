@@ -1,4 +1,6 @@
-﻿using PolarisServer.Database;
+﻿using System;
+
+using PolarisServer.Database;
 using PolarisServer.Packets.PSOPackets;
 using PolarisServer.Party;
 
@@ -7,8 +9,6 @@ namespace PolarisServer.Packets.Handlers
     [PacketHandlerAttr(0x11, 0x4)]
     public class StartGame : PacketHandler
     {
-        #region implemented abstract members of PacketHandler
-
         public override void HandlePacket(Client context, byte flags, byte[] data, uint position, uint size)
         {
             var reader = new PacketReader(data, position, size);
@@ -23,7 +23,7 @@ namespace PolarisServer.Packets.Handlers
                 {
                     var character = db.Characters.Find((int)charId);
 
-                    if (character == null || character.Player.PlayerId != context.User.PlayerId)
+                    if (character == null || character.Player.PlayerID != context.User.PlayerID)
                         return;
 
                     context.Character = character;
@@ -39,8 +39,6 @@ namespace PolarisServer.Packets.Handlers
 
             // TODO Set area, Set character, possibly more. See PolarisLegacy for more.
         }
-
-        #endregion
     }
 
     [PacketHandlerAttr(0x03, 0x03)]
@@ -56,27 +54,23 @@ namespace PolarisServer.Packets.Handlers
         // Just insantiate a new CharacterSpawn and push it through until then
         // - Kyle
 
-        #region implemented abstract members of PacketHandler
-
         public override void HandlePacket(Client context, byte flags, byte[] data, uint position, uint size)
         {
             // Set Player ID
             var setPlayerId = new PacketWriter();
-            setPlayerId.WritePlayerHeader((uint)context.User.PlayerId);
+
+            setPlayerId.WritePlayerHeader((uint)context.User.PlayerID);
+
             context.SendPacket(6, 0, 0, setPlayerId.ToArray());
 
             // Spawn Player
             new CharacterSpawn().HandlePacket(context, flags, data, position, size);
         }
-
-        #endregion
     }
 
     [PacketHandlerAttr(0x03, 0x10)]
     public class DoItMaybe : PacketHandler
     {
-        #region implemented abstract members of PacketHandler
-
         public override void HandlePacket(Client context, byte flags, byte[] data, uint position, uint size)
         {
             if (context.User == null || context.Character == null)
@@ -84,7 +78,5 @@ namespace PolarisServer.Packets.Handlers
 
             context.SendPacket(new NoPayloadPacket(0x03, 0x23));
         }
-
-        #endregion
     }
 }

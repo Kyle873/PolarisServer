@@ -26,9 +26,9 @@ namespace PolarisServer.Party
 
         public Party GetCurrentPartyForClient(Client c)
         {
-            foreach(Party p in parties.Keys) //TODO: Filter this on a per-block basis?
+            foreach (Party p in parties.Keys) //TODO: Filter this on a per-block basis?
             {
-                if (p.hasClientInParty(c))
+                if (p.HasClientInParty(c))
                     return p;
             }
 
@@ -49,10 +49,10 @@ namespace PolarisServer.Party
             if (!parties.ContainsKey(p))
                 return;
 
-            if (p.getSize() >= 4) // For now
+            if (p.GetSize() >= 4) // For now
                 return;
 
-            p.addClientToParty(c);
+            p.AddClientToParty(c);
         }
 
         public void RemovePlayerToParty(Client c, Party p)
@@ -61,17 +61,17 @@ namespace PolarisServer.Party
                 return;
 
             //TODO: Later just transfer owner like the real servers.
-            if (c == p.getPartyHost())
+            if (c == p.Host)
             {
-                foreach(Client cl in p.getMembers())
+                foreach (Client cl in p.Members)
                 {
-                    p.removeClientFromParty(cl);
+                    p.RemoveClientFromParty(cl);
                 }
                 parties.Remove(p);
             }
             else
             {
-                p.removeClientFromParty(c);
+                p.RemoveClientFromParty(c);
             }
         }
 

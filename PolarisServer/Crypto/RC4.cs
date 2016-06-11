@@ -83,7 +83,7 @@ namespace PolarisServer.Crypto
             var o = CryptoConfig.CreateFromName(algName) ?? new Arc4Managed();
             // in case machine.config isn't configured to use 
             // any RC4 implementation
-            return (Rc4) o;
+            return (Rc4)o;
         }
     }
 }

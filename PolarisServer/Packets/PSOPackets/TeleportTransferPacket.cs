@@ -1,32 +1,35 @@
 ﻿using System;
+
 using PolarisServer.Models;
 
 namespace PolarisServer.Packets.PSOPackets
 {
-    class TeleportTransferPacket : Packet
+    public class TeleportTransferPacket : Packet
     {
         private PSOObject src;
-        private PSOLocation dst;
+        private PSOLocation dest;
 
         public TeleportTransferPacket(PSOObject srcTeleporter, PSOLocation destination)
         {
             src = srcTeleporter;
-            dst = destination;
+            dest = destination;
         }
 
         public override byte[] Build()
         {
             PacketWriter writer = new PacketWriter();
+
             writer.Write(new byte[12]);
             writer.WriteStruct(src.Header);
-            writer.WritePosition(dst);
+            writer.WritePosition(dest);
             writer.Write(new byte[2]);
+
             return writer.ToArray();
         }
 
         public override PacketHeader GetHeader()
         {
-            return new PacketHeader(0x4, 0x2, PacketFlags.OBJECT_RELATED);
+            return new PacketHeader(0x4, 0x2, PacketFlags.ObjectRelated);
         }
     }
 }

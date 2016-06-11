@@ -8,58 +8,53 @@ namespace PolarisServer.Network
     public class SocketServer
     {
         public delegate void NewClientDelegate(SocketClient client);
+        public event NewClientDelegate NewClient;
 
-        private readonly List<SocketClient> _clients = new List<SocketClient>();
-        private readonly TcpListener _listener;
-        private readonly List<Socket> _readableSockets = new List<Socket>();
-        private readonly List<Socket> _writableSockets = new List<Socket>();
-        private readonly Dictionary<Socket, SocketClient> _socketMap = new Dictionary<Socket, SocketClient>();
-        private int _port;
+        public List<SocketClient> Clients { get; } = new List<SocketClient>();
+
+        private readonly TcpListener listener;
+        private readonly List<Socket> readableSockets = new List<Socket>();
+        private readonly List<Socket> writableSockets = new List<Socket>();
+        private readonly Dictionary<Socket, SocketClient> socketMap = new Dictionary<Socket, SocketClient>();
+        private int port;
 
         public SocketServer(int port)
         {
-            _port = port;
+            this.port = port;
 
-            _listener = new TcpListener(IPAddress.Any, port);
-            _listener.Start();
+            listener = new TcpListener(IPAddress.Any, port);
+            listener.Start();
         }
-
-        public IList<SocketClient> Clients
-        {
-            get { return _clients.AsReadOnly(); }
-        }
-
-        public event NewClientDelegate NewClient;
 
         public void Run()
         {
             try
             {
                 // Compile a list of possibly-readable sockets
-                _readableSockets.Clear();
-                _readableSockets.Add(_listener.Server);
-                _writableSockets.Clear();
+                readableSockets.Clear();
+                readableSockets.Add(listener.Server);
+                writableSockets.Clear();
 
-                foreach (var client in _clients)
+                foreach (var client in Clients)
                 {
-                    _readableSockets.Add(client.Socket.Client);
+                    readableSockets.Add(client.Socket.Client);
                     if (client.NeedsToWrite)
-                        _writableSockets.Add(client.Socket.Client);
+                        writableSockets.Add(client.Socket.Client);
                 }
 
-                Socket.Select(_readableSockets, _writableSockets, null, 1000000);
+                Socket.Select(readableSockets, writableSockets, null, 1000000);
 
-                foreach (var socket in _readableSockets)
+                foreach (var socket in readableSockets)
                 {
-                    if (socket == _listener.Server)
+                    if (socket == listener.Server)
                     {
                         // New connection
                         Logger.WriteInternal("[HI!] New connection!");
 
-                        var c = new SocketClient(this, _listener.AcceptTcpClient());
+                        var c = new SocketClient(this, listener.AcceptTcpClient());
 
-                        _clients.Add(c);
-                        _socketMap.Add(c.Socket.Client, c);
+                        Clients.Add(c);
+                        socketMap.Add(c.Socket.Client, c);
 
                         NewClient(c);
                     }
@@ -67,13 +62,13 @@ namespace PolarisServer.Network
                     {
                         // Readable data
                         if (socket.Connected)
-                            _socketMap[socket].OnReadable();
+                            socketMap[socket].OnReadable();
                     }
                 }
 
-                foreach (var socket in _writableSockets)
+                foreach (var socket in writableSockets)
                     if (socket.Connected)
-                        _socketMap[socket].OnWritable();
+                        socketMap[socket].OnWritable();
             }
             catch (Exception ex)
             {
@@ -85,8 +80,8 @@ namespace PolarisServer.Network
         {
             Console.WriteLine("Connection closed");
 
-            _socketMap.Remove(client.Socket.Client);
-            _clients.Remove(client);
+            socketMap.Remove(client.Socket.Client);
+            Clients.Remove(client);
         }
     }
 }

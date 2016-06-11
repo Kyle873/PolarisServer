@@ -1,13 +1,13 @@
-﻿using PolarisServer.Database;
+﻿using System;
 using System.Linq;
+
+using PolarisServer.Database;
 
 namespace PolarisServer.Packets.Handlers
 {
     [PacketHandlerAttr(0x11, 0x02)]
     public class CharacterList : PacketHandler
     {
-        #region implemented abstract members of PacketHandler
-
         public override void HandlePacket(Client context, byte flags, byte[] data, uint position, uint size)
         {
             if (context.User == null)
@@ -18,9 +18,9 @@ namespace PolarisServer.Packets.Handlers
             using (var db = new PolarisEf())
             {
                 var chars = db.Characters
-                    .Where(w => w.Player.PlayerId == context.User.PlayerId)
-                    .OrderBy(o => o.CharacterId) // TODO: Order by last played
-                    .Select(s => s);
+                            .Where(w => w.Player.PlayerID == context.User.PlayerID)
+                            .OrderBy(o => o.CharacterID) // TODO: Order by last played
+                            .Select(s => s);
 
                 writer.Write((uint)chars.Count()); // Number of characters
 
@@ -29,8 +29,8 @@ namespace PolarisServer.Packets.Handlers
 
                 foreach (var ch in chars)
                 {
-                    writer.Write((uint)ch.CharacterId);
-                    writer.Write((uint)context.User.PlayerId);
+                    writer.Write((uint)ch.CharacterID);
+                    writer.Write((uint)context.User.PlayerID);
 
                     for (var i = 0; i < 0x10; i++)
                         writer.Write((byte)0);
@@ -55,7 +55,5 @@ namespace PolarisServer.Packets.Handlers
 
             context.SendPacket(0x11, 0x03, 0, writer.ToArray());
         }
-
-        #endregion
     }
 }

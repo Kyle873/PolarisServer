@@ -2,13 +2,15 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+
 using PolarisServer.Models;
 
 namespace PolarisServer.Packets.PSOPackets
 {
-    class LoginDataPacket : Packet
+    public class LoginDataPacket : Packet
     {
-        private string blockName, error;
+        private string blockName;
+        private string error;
         private uint userid;
 
         public LoginDataPacket(string blockName, string error, uint userid)
@@ -21,13 +23,15 @@ namespace PolarisServer.Packets.PSOPackets
         public override byte[] Build()
         {
             var resp = new PacketWriter();
-            resp.Write((uint)((userid == 0) ? 1 : 0)); // Status flag: 0=success, 1=error
+
+            resp.Write((uint)((userid == 0) ? 1 : 0)); // Status flag: 0 = success, 1 = error
             resp.WriteUtf16(error, 0x8BA4, 0xB6);
 
             if (userid == 0)
             {
                 for (var i = 0; i < 0xEC; i++)
                     resp.Write((byte)0);
+
                 return resp.ToArray();
             }
 
@@ -52,14 +56,10 @@ namespace PolarisServer.Packets.PSOPackets
 
             //WHAT
             for (int i = 0; i < 10; i++)
-            {
                 resp.Write(1065353216);
-            }
             //ARE
             for (int i = 0; i < 21; i++)
-            {
                 resp.Write(1120403456);
-            }
             //THESE?
             resp.Write(0x91A2B);    //B0
             resp.Write(0x91A2B);    //B4
@@ -71,7 +71,7 @@ namespace PolarisServer.Packets.PSOPackets
 
         public override PacketHeader GetHeader()
         {
-            return new PacketHeader(0x11, 0x1, PacketFlags.PACKED);
+            return new PacketHeader(0x11, 0x1, PacketFlags.Packed);
         }
     }
 }

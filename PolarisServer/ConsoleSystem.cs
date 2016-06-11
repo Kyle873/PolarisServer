@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Timers;
+
 using Timer = System.Timers.Timer;
 
 using PolarisServer.Database;
@@ -73,9 +74,16 @@ namespace PolarisServer
     /// </summary>
     public class ConsoleSystem
     {
-        private readonly object _consoleLock = new object();
+        public Thread Thread;
+        public Timer Timer;
+        public List<ConsoleCommand> Commands = new List<ConsoleCommand>();
 
-        private readonly List<ConsoleKey> _controlKeys = new List<ConsoleKey>
+        public int Width { get; private set; }
+        public int Height { get; private set; }
+
+        private readonly object consoleLock = new object();
+
+        private readonly List<ConsoleKey> controlKeys = new List<ConsoleKey>
         {
             ConsoleKey.Backspace,
             ConsoleKey.Enter,
@@ -90,69 +98,63 @@ namespace PolarisServer
 
         private const string Prompt = "Polaris> ";
 
-        private string _commandLine = string.Empty;
-        private int _commandIndex;
-        private int _commandRowInConsole;
+        private string commandLine = string.Empty;
+        private int commandIndex;
+        private int commandRowInConsole;
 
-        private readonly List<string> _history = new List<string>();
-        private int _historyIndex;
+        private readonly List<string> history = new List<string>();
+        private int historyIndex;
 
-        private int _lastDrawnCommandLineSize;
-        private int _maxCommandLineSize = -1;
+        private int lastDrawnCommandLineSize;
+        private int maxCommandLineSize = -1;
 
-        public Thread Thread;
-
-        public List<ConsoleCommand> Commands = new List<ConsoleCommand>();
-        private ConsoleKeyInfo _key;
-        
-        // ReSharper disable once InconsistentNaming
-        public Timer timer;
+        private ConsoleKeyInfo key;
 
         public ConsoleSystem()
         {
             Console.Title = "Polaris";
             Console.CursorVisible = true;
-            SetSize(80, 24);
+            // SetSize(80, 24);
 
-            timer = new Timer(1000);
-            timer.Elapsed += TimerRefresh;
-            timer.Start();
+            Timer = new Timer(1000);
+            Timer.Elapsed += TimerRefresh;
+            Timer.Start();
 
             CreateCommands();
         }
-
-        public int Width { get; private set; }
-        public int Height { get; private set; }
 
         public void SetSize(int width, int height)
         {
             Width = width;
             Height = height;
 
-            _maxCommandLineSize = width - Prompt.Length;
+            maxCommandLineSize = width - Prompt.Length;
 
             Console.SetWindowSize(width, height);
         }
 
         public void AddLine(ConsoleColor color, string text)
         {
-            lock (_consoleLock)
+            lock (consoleLock)
             {
                 BlankDrawnCommandLine();
 
                 var useColors = PolarisApp.Config.UseConsoleColors;
                 var saveColor = Console.ForegroundColor;
 
-                Console.SetCursorPosition(0, _commandRowInConsole);
+                Console.SetCursorPosition(0, commandRowInConsole);
+
                 if (useColors)
                     Console.ForegroundColor = color;
+
                 Console.WriteLine(text);
 
                 if (useColors)
                     Console.ForegroundColor = saveColor;
 
                 Console.WriteLine();
-                _commandRowInConsole = Console.CursorTop - 1;
+
+                commandRowInConsole = Console.CursorTop - 1;
 
                 RefreshCommandLine();
                 FixCursorPosition();
@@ -161,14 +163,14 @@ namespace PolarisServer
 
         private void BlankDrawnCommandLine()
         {
-            if (_lastDrawnCommandLineSize > 0)
+            if (lastDrawnCommandLineSize > 0)
             {
-                Console.SetCursorPosition(0, _commandRowInConsole);
+                Console.SetCursorPosition(0, commandRowInConsole);
 
-                for (int i = 0; i < _lastDrawnCommandLineSize; i++)
+                for (int i = 0; i < lastDrawnCommandLineSize; i++)
                     Console.Write(' ');
 
-                _lastDrawnCommandLineSize = 0;
+                lastDrawnCommandLineSize = 0;
             }
         }
 
@@ -176,16 +178,16 @@ namespace PolarisServer
         {
             BlankDrawnCommandLine();
 
-            Console.SetCursorPosition(0, _commandRowInConsole);
+            Console.SetCursorPosition(0, commandRowInConsole);
             Console.Write(Prompt);
-            Console.Write(_commandLine);
+            Console.Write(commandLine);
 
-            _lastDrawnCommandLineSize = Prompt.Length + _commandLine.Length;
+            lastDrawnCommandLineSize = Prompt.Length + commandLine.Length;
         }
 
         private void FixCursorPosition()
         {
-            Console.SetCursorPosition(Prompt.Length + _commandIndex, _commandRowInConsole);
+            Console.SetCursorPosition(Prompt.Length + commandIndex, commandRowInConsole);
         }
 
         private string AssembleInfoBar()
@@ -205,7 +207,7 @@ namespace PolarisServer
 
         private void TimerRefresh(object sender, ElapsedEventArgs e)
         {
-            lock (_consoleLock)
+            lock (consoleLock)
             {
                 Console.Title = "Polaris - " + AssembleInfoBar();
             }
@@ -236,22 +238,18 @@ namespace PolarisServer
 
         public void CreateCommands()
         {
-            // Help
             var help = new ConsoleCommand(Help, "help") { Help = "Displays help for all commands" };
             Commands.Add(help);
 
-            // Config
             var config = new ConsoleCommand(Config, "config", "c");
             config.Arguments.Add(new ConsoleCommandArgument("Save | Load | List | Option Name", false));
             config.Arguments.Add(new ConsoleCommandArgument("Value", true));
             config.Help = "Set a configuration variable to the specified value";
             Commands.Add(config);
 
-            // Clear
             var clearLog = new ConsoleCommand(ClearLog, "clear", "cls") { Help = "Clears the current log buffer" };
             Commands.Add(clearLog);
 
-            // Echo
             var echo = new ConsoleCommand(Echo, "echo") { Help = "Echo the given text back into the Console" };
             echo.Arguments.Add(new ConsoleCommandArgument("text", false));
             Commands.Add(echo);
@@ -261,19 +259,16 @@ namespace PolarisServer
             lua.Arguments.Add(new ConsoleCommandArgument("lua", false));
             Commands.Add(lua);
 
-            // Announce
             var announce = new ConsoleCommand(Announce, "announce", "a");
             announce.Arguments.Add(new ConsoleCommandArgument("Message", false));
             announce.Help = "Sends a message to all connected players";
             Commands.Add(announce);
 
-            // ClearPlayers
             var clearPlayers = new ConsoleCommand(ClearPlayers, "clearplayers", "cp");
             clearPlayers.Arguments.Add(new ConsoleCommandArgument("Exempt Username", true));
             clearPlayers.Help = "Disconnects all players from the server";
             Commands.Add(clearPlayers);
 
-            // SpawnClone
             var spawnClone = new ConsoleCommand(SpawnClone, "spawnclone");
             spawnClone.Arguments.Add(new ConsoleCommandArgument("Username", false));
             spawnClone.Arguments.Add(new ConsoleCommandArgument("Player Name", false));
@@ -283,7 +278,6 @@ namespace PolarisServer
             spawnClone.Help = "Spawns a clone of your character";
             Commands.Add(spawnClone);
 
-            // SendPacket
             var sendPacket = new ConsoleCommand(SendPacket, "sendpacket", "sendp");
             sendPacket.Arguments.Add(new ConsoleCommandArgument("Name", false));
             sendPacket.Arguments.Add(new ConsoleCommandArgument("Type", false));
@@ -293,21 +287,18 @@ namespace PolarisServer
             sendPacket.Help = "Sends a packet to a client";
             Commands.Add(sendPacket);
 
-            // SendPacketFile
             var sendPacketFile = new ConsoleCommand(SendPacketFile, "sendpacketfile", "sendpf");
             sendPacketFile.Arguments.Add(new ConsoleCommandArgument("Username", false));
             sendPacketFile.Arguments.Add(new ConsoleCommandArgument("Filename", false));
             sendPacketFile.Help = "Sends the specified file's contents as a packet";
             Commands.Add(sendPacketFile);
 
-            // SendPacketDirectory
             var sendPacketDirectory = new ConsoleCommand(SendPacketDirectory, "sendpacketdirectory", "sendpd");
             sendPacketDirectory.Arguments.Add(new ConsoleCommandArgument("Username", false));
             sendPacketDirectory.Arguments.Add(new ConsoleCommandArgument("Dirname", false));
             sendPacketDirectory.Help = "Sends the specified directory's contents as a packet";
             Commands.Add(sendPacketDirectory);
 
-            // SendPacketDirectory Slow
             var sendPacketDirectorySlow = new ConsoleCommand(SendPacketDirectorySlow, "sendpacketdirectoryslow", "sendpds");
             sendPacketDirectorySlow.Arguments.Add(new ConsoleCommandArgument("Username", false));
             sendPacketDirectorySlow.Arguments.Add(new ConsoleCommandArgument("Dirname", false));
@@ -316,50 +307,41 @@ namespace PolarisServer
             Commands.Add(sendPacketDirectorySlow);
 
             var teleportPlayer = new ConsoleCommand(TeleportPlayer, "teleportplayer", "tp");
-
             teleportPlayer.Arguments.Add(new ConsoleCommandArgument("RotX", false));
             teleportPlayer.Arguments.Add(new ConsoleCommandArgument("RotY", false));
             teleportPlayer.Arguments.Add(new ConsoleCommandArgument("RotZ", false));
             teleportPlayer.Arguments.Add(new ConsoleCommandArgument("RotW", false));
-
             teleportPlayer.Arguments.Add(new ConsoleCommandArgument("PosX", false));
             teleportPlayer.Arguments.Add(new ConsoleCommandArgument("PosY", false));
             teleportPlayer.Arguments.Add(new ConsoleCommandArgument("PosZ", false));
-
             teleportPlayer.Arguments.Add(new ConsoleCommandArgument("Username", true));
-
             teleportPlayer.Help = "Teleports a player to the given position.";
             Commands.Add(teleportPlayer);
 
             var teleportPlayer2 = new ConsoleCommand(TeleportPlayer_POS, "teleportplayerpos", "tpp");
-
             teleportPlayer2.Arguments.Add(new ConsoleCommandArgument("PosX", false));
             teleportPlayer2.Arguments.Add(new ConsoleCommandArgument("PosY", false));
             teleportPlayer2.Arguments.Add(new ConsoleCommandArgument("PosZ", false));
-
             teleportPlayer2.Arguments.Add(new ConsoleCommandArgument("Username", true));
-
-            teleportPlayer2.Help = "Teleports a player to the given position. (pos only)";
+            teleportPlayer2.Help = "Teleports a player to the given position. (position only)";
             Commands.Add(teleportPlayer2);
 
-            var changeThezone = new ConsoleCommand(ChangeArea, "areachange", "map");
-            changeThezone.Arguments.Add(new ConsoleCommandArgument("username", false));
-            changeThezone.Arguments.Add(new ConsoleCommandArgument("zoneID", false));
-            changeThezone.Arguments.Add(new ConsoleCommandArgument("mapNumber", false));
-            changeThezone.Arguments.Add(new ConsoleCommandArgument("flags", false));
-            changeThezone.Arguments.Add(new ConsoleCommandArgument("seed", false));
-            changeThezone.Arguments.Add(new ConsoleCommandArgument("sizeX", false));
-            changeThezone.Arguments.Add(new ConsoleCommandArgument("sizeY", false));
-            changeThezone.Arguments.Add(new ConsoleCommandArgument("templateNum", false));
-
-            teleportPlayer.Help = "Spawns you elsewhere.";
-            Commands.Add(changeThezone);
+            var changeZone = new ConsoleCommand(ChangeArea, "areachange", "map");
+            changeZone.Arguments.Add(new ConsoleCommandArgument("username", false));
+            changeZone.Arguments.Add(new ConsoleCommandArgument("zoneID", false));
+            changeZone.Arguments.Add(new ConsoleCommandArgument("mapNumber", false));
+            changeZone.Arguments.Add(new ConsoleCommandArgument("flags", false));
+            changeZone.Arguments.Add(new ConsoleCommandArgument("seed", false));
+            changeZone.Arguments.Add(new ConsoleCommandArgument("sizeX", false));
+            changeZone.Arguments.Add(new ConsoleCommandArgument("sizeY", false));
+            changeZone.Arguments.Add(new ConsoleCommandArgument("templateNum", false));
+            changeZone.Help = "Spawns you elsewhere.";
+            Commands.Add(changeZone);
 
             var SpawnObjectCommand = new ConsoleCommand(SpawnObject, "spawnobject", "sobj");
             SpawnObjectCommand.Arguments.Add(new ConsoleCommandArgument("username", true));
             SpawnObjectCommand.Arguments.Add(new ConsoleCommandArgument("objectName", false));
             SpawnObjectCommand.Arguments.Add(new ConsoleCommandArgument("entityID", false));
-
             SpawnObjectCommand.Arguments.Add(new ConsoleCommandArgument("RotX", false));
             SpawnObjectCommand.Arguments.Add(new ConsoleCommandArgument("RotY", false));
             SpawnObjectCommand.Arguments.Add(new ConsoleCommandArgument("RotZ", false));
@@ -367,27 +349,13 @@ namespace PolarisServer
             SpawnObjectCommand.Arguments.Add(new ConsoleCommandArgument("PosX", false));
             SpawnObjectCommand.Arguments.Add(new ConsoleCommandArgument("PosY", false));
             SpawnObjectCommand.Arguments.Add(new ConsoleCommandArgument("PosZ", false));
-
-            SpawnObjectCommand.Help = "Spawns an object. (Does not contain object arguments/flags.";
+            SpawnObjectCommand.Help = "Spawns an object. (Does not contain object arguments/flags).";
             Commands.Add(SpawnObjectCommand);
-
-            var ImportNPC = new ConsoleCommand(ImportNPCs, "importnpc");
-            ImportNPC.Arguments.Add(new ConsoleCommandArgument("zone", false));
-            ImportNPC.Arguments.Add(new ConsoleCommandArgument("npcfolder", false));
-            ImportNPC.Help = "Imports a folder of NPC spawn packets into the database.";
-            Commands.Add(ImportNPC);
-
-            var ImportObject = new ConsoleCommand(ImportObjects, "importobjects");
-            ImportObject.Arguments.Add(new ConsoleCommandArgument("zone", false));
-            ImportObject.Arguments.Add(new ConsoleCommandArgument("objectfolder", false));
-            ImportObject.Help = "Imports a folder of object spawn packets into the database.";
-            Commands.Add(ImportObject);
 
             var tellLoc = new ConsoleCommand(TellPosition, "pos");
             tellLoc.Help = "Tells you your current location. (Need to be a client to use this.)";
             Commands.Add(tellLoc);
 
-            // Exit
             var exit = new ConsoleCommand(Exit, "exit", "quit") { Help = "Close the Polaris Server" };
             Commands.Add(exit);
         }
@@ -395,71 +363,71 @@ namespace PolarisServer
         public void CheckInput()
         {
             // Read key
-            _key = Console.ReadKey(true);
+            key = Console.ReadKey(true);
 
             // Check to make sure this is a valid key to append to the command line
-            var validKey = _controlKeys.All(controlKey => _key.Key != controlKey);
+            var validKey = controlKeys.All(controlKey => key.Key != controlKey);
 
             // Append key to the command line
-            if (validKey && (_commandLine.Length + 1) < _maxCommandLineSize)
+            if (validKey && (commandLine.Length + 1) < maxCommandLineSize)
             {
-                _commandLine = _commandLine.Insert(_commandIndex, _key.KeyChar.ToString());
-                _commandIndex++;
+                commandLine = commandLine.Insert(commandIndex, key.KeyChar.ToString());
+                commandIndex++;
             }
 
             // Backspace
-            if (_key.Key == ConsoleKey.Backspace && _commandLine.Length > 0 && _commandIndex > 0)
+            if (key.Key == ConsoleKey.Backspace && commandLine.Length > 0 && commandIndex > 0)
             {
-                _commandLine = _commandLine.Remove(_commandIndex - 1, 1);
-                _commandIndex--;
+                commandLine = commandLine.Remove(commandIndex - 1, 1);
+                commandIndex--;
             }
 
             // Cursor movement
-            if (_key.Key == ConsoleKey.LeftArrow && _commandLine.Length > 0 && _commandIndex > 0)
-                _commandIndex--;
-            if (_key.Key == ConsoleKey.RightArrow && _commandLine.Length > 0 && _commandIndex <= _commandLine.Length - 1)
-                _commandIndex++;
-            if (_key.Key == ConsoleKey.Home)
-                _commandIndex = 0;
-            if (_key.Key == ConsoleKey.End)
-                _commandIndex = _commandLine.Length;
+            if (key.Key == ConsoleKey.LeftArrow && commandLine.Length > 0 && commandIndex > 0)
+                commandIndex--;
+            if (key.Key == ConsoleKey.RightArrow && commandLine.Length > 0 && commandIndex <= commandLine.Length - 1)
+                commandIndex++;
+            if (key.Key == ConsoleKey.Home)
+                commandIndex = 0;
+            if (key.Key == ConsoleKey.End)
+                commandIndex = commandLine.Length;
 
             // History
-            if (_key.Key == ConsoleKey.UpArrow && _history.Count > 0)
+            if (key.Key == ConsoleKey.UpArrow && history.Count > 0)
             {
-                _historyIndex--;
+                historyIndex--;
 
-                if (_historyIndex < 0)
-                    _historyIndex = _history.Count - 1;
+                if (historyIndex < 0)
+                    historyIndex = history.Count - 1;
 
-                _commandLine = _history[_historyIndex];
-                _commandIndex = _history[_historyIndex].Length;
+                commandLine = history[historyIndex];
+                commandIndex = history[historyIndex].Length;
             }
-            if (_key.Key == ConsoleKey.DownArrow && _history.Count > 0)
+            if (key.Key == ConsoleKey.DownArrow && history.Count > 0)
             {
-                _historyIndex++;
+                historyIndex++;
 
-                if (_historyIndex > _history.Count - 1)
-                    _historyIndex = 0;
+                if (historyIndex > history.Count - 1)
+                    historyIndex = 0;
 
-                _commandLine = _history[_historyIndex];
-                _commandIndex = _history[_historyIndex].Length;
+                commandLine = history[historyIndex];
+                commandIndex = history[historyIndex].Length;
             }
 
             // Run Command
-            if (_key.Key == ConsoleKey.Enter)
+            if (key.Key == ConsoleKey.Enter)
             {
                 var valid = false;
 
                 // Stop if the command line is blank
-                if (string.IsNullOrEmpty(_commandLine))
+                if (string.IsNullOrEmpty(commandLine))
                     Logger.WriteWarning("[CMD] No command specified");
                 else
                 {
                     // Iterate commands
                     foreach (var command in Commands)
                     {
-                        var full = _commandLine;
+                        var full = commandLine;
                         var args = full.Split(' ');
 
                         if (command.Names.Any(name => args[0].ToLower() == name.ToLower()))
@@ -473,18 +441,18 @@ namespace PolarisServer
                     }
 
                     if (!valid)
-                        Logger.WriteError("[CMD] {0} - Command not found", _commandLine.Split(' ')[0].Trim('\r'));
+                        Logger.WriteError("[CMD] {0} - Command not found", commandLine.Split(' ')[0].Trim('\r'));
 
                     // Add the command line to history and wipe it
-                    _history.Add(_commandLine);
-                    _historyIndex = _history.Count;
-                    _commandLine = string.Empty;
+                    history.Add(commandLine);
+                    historyIndex = history.Count;
+                    commandLine = string.Empty;
                 }
 
-                _commandIndex = 0;
+                commandIndex = 0;
             }
 
-            lock (_consoleLock)
+            lock (consoleLock)
             {
                 RefreshCommandLine();
                 FixCursorPosition();
@@ -544,6 +512,7 @@ namespace PolarisServer
         private void Echo(string[] args, int length, string full, Client client)
         {
             var echo = string.Empty;
+
             for (var i = 1; i < args.Length; i++)
                 echo += args[i];
 
@@ -649,8 +618,8 @@ namespace PolarisServer
 
                 // This is probably not the right way to do this
                 PolarisApp.Instance.Server.Clients[i].Socket.Close();
-                Logger.WriteCommand(client,
-                    "[CMD] Logged out user " + PolarisApp.Instance.Server.Clients[i].User.Username);
+
+                Logger.WriteCommand(client, "[CMD] Logged out user " + PolarisApp.Instance.Server.Clients[i].User.Username);
             }
 
             Logger.WriteCommand(client, "[CMD] Logged out all players successfully");
@@ -696,23 +665,23 @@ namespace PolarisServer
             {
                 Username = name,
                 Nickname = playerName,
-                PlayerId = (12345678 + new Random().Next())
+                PlayerID = (12345678 + new Random().Next())
             };
 
             var fakeChar = new Character
             {
-                CharacterId = 12345678 + new Random().Next(),
+                CharacterID = 12345678 + new Random().Next(),
                 Player = fakePlayer,
                 Name = playerName,
                 Looks = client.Character.Looks,
                 Jobs = client.Character.Jobs
             };
 
-
             var fakePacket = new CharacterSpawnPacket(fakeChar, new PSOLocation(0f, 1f, 0f, 0f, x, y, z))
             {
                 IsItMe = false
             };
+
             client.SendPacket(fakePacket);
 
             Logger.WriteCommand(client, "[CMD] Spawned a clone of {0} named {1}", name, playerName);
@@ -749,8 +718,7 @@ namespace PolarisServer
             // Send packet
             PolarisApp.Instance.Server.Clients[id].SendPacket(type, subType, flags, data);
 
-            Logger.WriteCommand(client, "[CMD] Sent packet {0:X}-{1:X} with flags {2} to {3}", type, subType, flags,
-                name);
+            Logger.WriteCommand(client, "[CMD] Sent packet {0:X}-{1:X} with flags {2} to {3}", type, subType, flags, name);
         }
 
         private void SendPacketDirectory(string[] args, int length, string full, Client client)
@@ -788,8 +756,7 @@ namespace PolarisServer
                 // Send packet
                 PolarisApp.Instance.Server.Clients[id].SendPacket(data[4], data[5], data[6], packet);
 
-                Logger.WriteCommand(client, "[CMD] Sent contents of {0} as packet {1:X}-{2:X} with flags {3} to {4}",
-                    path, data[4], data[5], data[6], name);
+                Logger.WriteCommand(client, "[CMD] Sent contents of {0} as packet {1:X}-{2:X} with flags {3} to {4}", path, data[4], data[5], data[6], name);
             }
         }
 
@@ -829,8 +796,8 @@ namespace PolarisServer
                 // Send packet
                 PolarisApp.Instance.Server.Clients[id].SendPacket(data[4], data[5], data[6], packet);
 
-                Logger.WriteCommand(client, "[CMD] Sent contents of {0} as packet {1:X}-{2:X} with flags {3} to {4}",
-                    path, data[4], data[5], data[6], name);
+                Logger.WriteCommand(client, "[CMD] Sent contents of {0} as packet {1:X}-{2:X} with flags {3} to {4}", path, data[4], data[5], data[6], name);
+
                 Thread.Sleep(delay);
             }
         }
@@ -865,20 +832,19 @@ namespace PolarisServer
             // Send packet
             PolarisApp.Instance.Server.Clients[id].SendPacket(data[4], data[5], data[6], packet);
 
-            Logger.WriteCommand(client, "[CMD] Sent contents of {0} as packet {1:X}-{2:X} with flags {3} to {4}",
-                filename, data[4], data[5], data[6], name);
+            Logger.WriteCommand(client, "[CMD] Sent contents of {0} as packet {1:X}-{2:X} with flags {3} to {4}", filename, data[4], data[5], data[6], name);
         }
 
         private void TeleportPlayer(string[] args, int length, string full, Client client)
         {
             var foundPlayer = false;
             var id = 0;
+
             if (client != null)
             {
-                id = client.User.PlayerId;
+                id = client.User.PlayerID;
                 foundPlayer = true;
             }
-                
             else
             {
                 var name = args[8].Trim('\"');
@@ -888,7 +854,6 @@ namespace PolarisServer
                     foundPlayer = true;
                 client = PolarisApp.Instance.Server.Clients[id];
             }
-            
 
             // Couldn't find the username
             if (!foundPlayer)
@@ -897,21 +862,20 @@ namespace PolarisServer
                 return;
             }
 
-            PSOLocation destination = new PSOLocation(float.Parse(args[1]), float.Parse(args[2]), float.Parse(args[3]), float.Parse(args[4]),
-                float.Parse(args[5]), float.Parse(args[6]), float.Parse(args[7]));
+            PSOLocation destination = new PSOLocation(float.Parse(args[1]), float.Parse(args[2]), float.Parse(args[3]),
+                                                      float.Parse(args[4]), float.Parse(args[5]), float.Parse(args[6]), float.Parse(args[7]));
 
-
-            client.SendPacket(new TeleportTransferPacket(ObjectManager.Instance.getObjectByID("lobby", 443), destination));
-
+            client.SendPacket(new TeleportTransferPacket(ObjectManager.Instance.GetObjectByID("lobby", 443), destination));
         }
 
         private void TeleportPlayer_POS(string[] args, int length, string full, Client client)
         {
             var foundPlayer = false;
             var id = 0;
+
             if (client != null)
             {
-                id = client.User.PlayerId;
+                id = client.User.PlayerID;
                 foundPlayer = true;
             }
             else
@@ -925,7 +889,6 @@ namespace PolarisServer
                 client = PolarisApp.Instance.Server.Clients[id];
             }
 
-
             // Couldn't find the username
             if (!foundPlayer)
             {
@@ -934,20 +897,17 @@ namespace PolarisServer
             }
 
             PSOLocation destination = new PSOLocation(0f, 1f, 0f, 0f,
-                float.Parse(args[1]), float.Parse(args[2]), float.Parse(args[3]));
+                                                      float.Parse(args[1]), float.Parse(args[2]), float.Parse(args[3]));
 
-
-            client.SendPacket(new TeleportTransferPacket(ObjectManager.Instance.getObjectByID("lobby", 443), destination));
-
+            client.SendPacket(new TeleportTransferPacket(ObjectManager.Instance.GetObjectByID("lobby", 443), destination));
         }
 
         private void ChangeArea(string[] args, int length, string full, Client client)
         {
             var name = args[1].Trim('\"');
             var foundPlayer = false;
-
-
             var id = Helper.FindPlayerByUsername(name);
+
             if (id != -1)
                 foundPlayer = true;
 
@@ -965,39 +925,40 @@ namespace PolarisServer
             if (!ZoneManager.Instance.InstanceExists(String.Format("tpinstance_{0}_{1}", Int32.Parse(args[3]), Int32.Parse(args[8]))))
             {
                 dstMap = new Map("tpmap", Int32.Parse(args[3]), Int32.Parse(args[8]), (Map.MapType)Int32.Parse(args[2]), (Map.MapFlags)Int32.Parse(args[4]))
-                { GenerationArgs = new Map.GenParam() { seed = UInt32.Parse(args[5]), xsize = UInt32.Parse(args[6]), ysize = UInt32.Parse(args[7]) } };
+                {
+                    GenerationArgs = new Map.GenParam()
+                    {
+                        Seed = UInt32.Parse(args[5]),
+                        XSize = UInt32.Parse(args[6]),
+                        YSize = UInt32.Parse(args[7])
+                    }
+                };
+
                 ZoneManager.Instance.NewInstance(String.Format("tpinstance_{0}", Int32.Parse(args[3])), dstMap);
-            } else
-            {
-                dstMap = ZoneManager.Instance.MapFromInstance("tpmap", String.Format("tpinstance_{0}_{1}", Int32.Parse(args[3]), Int32.Parse(args[8])));
             }
+            else
+                dstMap = ZoneManager.Instance.MapFromInstance("tpmap", String.Format("tpinstance_{0}_{1}", Int32.Parse(args[3]), Int32.Parse(args[8])));
 
             dstMap.SpawnClient(context, dstMap.GetDefaultLocation());
 
+            // PSOLocation destination = new PSOLocation(float.Parse(args[2]), float.Parse(args[3]), float.Parse(args[4]), float.Parse(args[5]),float.Parse(args[6]), float.Parse(args[7]), float.Parse(args[8]));
 
+            // PolarisApp.Instance.Server.Clients[id].SendPacket(new TeleportTransferPacket(ObjectManager.Instance.getObjectByID("lobby", 443), destination));
 
-            //PSOLocation destination = new PSOLocation(float.Parse(args[2]), float.Parse(args[3]), float.Parse(args[4]), float.Parse(args[5]),float.Parse(args[6]), float.Parse(args[7]), float.Parse(args[8]));
+            context.SendPacket(0x8, 0xB, 0x0, ObjectManager.Instance.GetObjectByID(443).GenerateSpawnBlob());
 
-
-            //PolarisApp.Instance.Server.Clients[id].SendPacket(new TeleportTransferPacket(ObjectManager.Instance.getObjectByID("lobby", 443), destination));
-
-            context.SendPacket(0x8, 0xB, 0x0, ObjectManager.Instance.getObjectByID(443).GenerateSpawnBlob());
-
-            //var objects = ObjectManager.Instance.getObjectsForZone("casino").Values;
-            //foreach (var obj in objects)
-            //{
-            //    context.SendPacket(0x8, 0xB, 0x0, obj.GenerateSpawnBlob());
-            //}
-
-
+            /*
+            var objects = ObjectManager.Instance.getObjectsForZone("casino").Values;
+            foreach (var obj in objects)
+                context.SendPacket(0x8, 0xB, 0x0, obj.GenerateSpawnBlob());
+            */
 
             context.SendPacket(new NoPayloadPacket(0x03, 0x2B));
-
         }
 
         private void SpawnObject(string[] args, int length, string full, Client client)
         {
-            if(client == null)
+            if (client == null)
             {
                 var id = Helper.FindPlayerByUsername(args[1]);
                 if (id == -1)
@@ -1008,12 +969,16 @@ namespace PolarisServer
             else
             {
                 string[] newargs = new string[args.Length + 1];
+
                 newargs[0] = "";
                 newargs[1] = "";
+
                 Array.Copy(args, 1, newargs, 2, 9);
                 args = newargs;
             }
+
             PSOObject obj = new PSOObject();
+
             obj.Name = args[2];
             obj.Header = new ObjectHeader((uint)Int32.Parse(args[3]), EntityType.Object);
             obj.Position = new PSOLocation(float.Parse(args[4]), float.Parse(args[5]), float.Parse(args[6]), float.Parse(args[7]), float.Parse(args[8]), float.Parse(args[9]), float.Parse(args[10]));
@@ -1035,13 +1000,17 @@ namespace PolarisServer
             else
             {
                 string[] newargs = new string[args.Length + 1];
+
                 newargs[0] = "";
                 newargs[1] = "";
+
                 Array.Copy(args, 1, newargs, 2, args.Length - 1);
+
                 args = newargs;
             }
 
             PacketWriter luaPacket = new PacketWriter();
+
             luaPacket.Write((UInt16)1);
             luaPacket.Write((UInt16)1);
             luaPacket.WriteAscii(String.Join(" ", args, 2, args.Length - 2), 0xD975, 0x2F);
@@ -1049,113 +1018,10 @@ namespace PolarisServer
             client.SendPacket(0x10, 0x3, 0x4, luaPacket.ToArray());
         }
 
-        private void ImportNPCs(string[] args, int length, string full, Client client)
-        {
-            string zone = args[1];
-            string folder = args[2];
-
-            var packetList = Directory.GetFiles(folder);
-            Array.Sort(packetList);
-
-            List<NPC> newNPCs = new List<NPC>();
-            foreach (var path in packetList)
-            {
-                var data = File.ReadAllBytes(path);
-                PacketReader reader = new PacketReader(data);
-                PacketHeader header = reader.ReadStruct<PacketHeader>();
-                if (header.Type != 0x8 || header.Subtype != 0xC)
-                {
-                    Logger.WriteWarning("[WRN] File {0} not an NPC spawn packet, skipping.", path);
-                    continue;
-                }
-
-                NPC newNPC = new NPC();
-                newNPC.EntityID = (int)reader.ReadStruct<ObjectHeader>().ID;
-                var pos = reader.ReadEntityPosition();
-                newNPC.RotX = pos.RotX;
-                newNPC.RotY = pos.RotY;
-                newNPC.RotZ = pos.RotZ;
-                newNPC.RotW = pos.RotW;
-
-                newNPC.PosX = pos.PosX;
-                newNPC.PosY = pos.PosY;
-                newNPC.PosZ = pos.PosZ;
-                reader.ReadInt16();
-                newNPC.NPCName = reader.ReadFixedLengthAscii(0x20);
-                newNPC.ZoneName = zone;
-                newNPCs.Add(newNPC);
-                Logger.WriteInternal("[NPC] Adding new NPC {0} to the database for zone {1}", newNPC.NPCName, zone);
-            }
-
-            using (var db = new PolarisEf())
-            {
-                db.NPCs.AddRange(newNPCs);
-                db.SaveChanges();
-            }
-                
-        }
-
-        private void ImportObjects(string[] args, int length, string full, Client client)
-        {
-            string zone = args[1];
-            string folder = args[2];
-
-            var packetList = Directory.GetFiles(folder);
-            Array.Sort(packetList);
-
-            List<GameObject> newObjects = new List<GameObject>();
-            foreach (var path in packetList)
-            {
-                var data = File.ReadAllBytes(path);
-                PacketReader reader = new PacketReader(data);
-                PacketHeader header = reader.ReadStruct<PacketHeader>();
-                if (header.Type != 0x8 || header.Subtype != 0xB)
-                {
-                    Logger.WriteWarning("[WRN] File {0} not an Object spawn packet, skipping.", path);
-                    continue;
-                }
-
-                GameObject newObj = new GameObject();
-                newObj.ObjectID = (int)reader.ReadStruct<ObjectHeader>().ID;
-                var pos = reader.ReadEntityPosition();
-                newObj.RotX = pos.RotX;
-                newObj.RotY = pos.RotY;
-                newObj.RotZ = pos.RotZ;
-                newObj.RotW = pos.RotW;
-                   
-                newObj.PosX = pos.PosX;
-                newObj.PosY = pos.PosY;
-                newObj.PosZ = pos.PosZ;
-                reader.ReadInt16();
-                newObj.ObjectName = reader.ReadFixedLengthAscii(0x2C);
-                var objHeader = reader.ReadStruct<ObjectHeader>(); // Seems to always be blank...
-                if (objHeader.ID != 0)
-                    Logger.WriteWarning("[OBJ] It seems object {0} has a nonzero objHeader! ({1}) Investigate.", newObj.ObjectName, objHeader.ID);
-                newObj.ZoneName = zone;
-                var thingCount = reader.ReadUInt32();
-                newObj.ObjectFlags = new byte[thingCount * 4];
-                for (int i = 0; i < thingCount; i++)
-                {
-                    Buffer.BlockCopy(BitConverter.GetBytes(reader.ReadUInt32()), 0, newObj.ObjectFlags, i * 4, 4); // This should work
-                }
-                newObjects.Add(newObj);
-                Logger.WriteInternal("[OBJ] Adding new Object {0} to the database for zone {1}", newObj.ObjectName, zone);
-            }
-
-            using (var db = new PolarisEf())
-            {
-                db.GameObjects.AddRange(newObjects);
-                db.SaveChanges();
-            }
-
-        }
-
         private void TellPosition(string[] args, int length, string full, Client client)
         {
             if (client == null)
-            {
                 Logger.WriteError("[CMD] You need to be a client to run this command!");
-            }
 
             Logger.WriteCommand(client, "[CMD] {0}", client.CurrentLocation.ToString());
         }

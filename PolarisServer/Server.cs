@@ -11,17 +11,19 @@ namespace PolarisServer
     {
         public static Server Instance { get; private set; }
 
-        private readonly SocketServer _server;
-
         public List<Client> Clients { get; private set; }
         public DateTime StartTime { get; private set; }
         public Timer PingTimer;
 
+        private readonly SocketServer server;
+
         public Server()
         {
             Clients = new List<Client>();
-            _server = new SocketServer(12205);
-            _server.NewClient += HandleNewClient;
+            server = new SocketServer(12205);
+
+            server.NewClient += HandleNewClient;
+
             Instance = this;
             StartTime = DateTime.Now;
 
@@ -37,7 +39,7 @@ namespace PolarisServer
             while (true)
             {
                 // Run the underlying SocketServer
-                _server.Run();
+                server.Run();
 
                 // Check Clients to make sure they still exist
                 foreach (var client in Clients)
